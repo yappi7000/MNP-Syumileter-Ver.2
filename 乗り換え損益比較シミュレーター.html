@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>乗り換え損益比較シミュレーター | やっぴ〜Presents</title>
+<style>
+  :root{
+    --blue:#1565c0; --blue-dark:#0d47a1; --blue-light:#e8f1fd;
+    --bg:#f4f8fd; --card:#ffffff; --border:#d7e5f7;
+    --text:#1b2733; --sub:#5b6b7c;
+    --good:#1e8e3e; --good-bg:#e6f6ea;
+    --bad:#d93025; --bad-bg:#fdeceb;
+    --radius:14px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; font-family:"Hiragino Sans","Yu Gothic",system-ui,sans-serif;
+    background:var(--bg); color:var(--text); padding-bottom:60px;
+  }
+  header{
+    background:linear-gradient(135deg,var(--blue),var(--blue-dark));
+    color:#fff; padding:22px 16px 26px; text-align:center;
+  }
+  header h1{margin:0 0 4px; font-size:1.25rem;}
+  header p{margin:0; font-size:0.78rem; opacity:0.85;}
+  .wrap{max-width:640px; margin:0 auto; padding:16px;}
+  .card{
+    background:var(--card); border:1px solid var(--border); border-radius:var(--radius);
+    padding:16px; margin-bottom:16px; box-shadow:0 2px 8px rgba(20,60,120,0.05);
+  }
+  .card h2{
+    font-size:1rem; margin:0 0 14px; color:var(--blue-dark);
+    display:flex; align-items:center; gap:6px; border-bottom:2px solid var(--blue-light); padding-bottom:8px;
+  }
+  .card h3{font-size:0.88rem; margin:16px 0 10px; color:var(--blue-dark);}
+  .badge{
+    display:inline-block; background:var(--blue); color:#fff; font-size:0.7rem;
+    border-radius:20px; padding:2px 9px; margin-right:4px;
+  }
+  .row{display:flex; gap:10px; margin-bottom:12px; flex-wrap:wrap;}
+  .field{flex:1; min-width:130px;}
+  .field label{
+    display:block; font-size:0.72rem; color:var(--sub); margin-bottom:4px; font-weight:600;
+  }
+  input[type=text], input[type=number], input[type=date], select{
+    width:100%; padding:9px 10px; border:1px solid var(--border); border-radius:8px;
+    font-size:0.9rem; background:#fbfdff; color:var(--text);
+  }
+  input:focus, select:focus{outline:2px solid var(--blue); outline-offset:1px;}
+  .inline-check{
+    display:flex; align-items:center; gap:8px; padding:8px 10px; background:var(--blue-light);
+    border-radius:8px; margin-bottom:10px; font-size:0.85rem; font-weight:600; color:var(--blue-dark);
+  }
+  .inline-check input{width:auto;}
+  .warn-check{background:#fff3e0; color:#b45309;}
+  .sub-fields{padding-left:4px; margin-bottom:10px;}
+  .opt-row{display:flex; gap:6px; margin-bottom:8px; align-items:center; flex-wrap:wrap;}
+  .opt-row input.optname{flex:2; min-width:100px;}
+  .opt-row input.fee{flex:1; min-width:80px;}
+  .opt-row input.months{flex:1; min-width:70px;}
+  .opt-row .opt-label{font-size:0.65rem; color:var(--sub); display:block; margin-bottom:2px;}
+  .opt-row-inner{display:flex; gap:6px; flex:1; flex-wrap:wrap;}
+  .opt-row button{
+    background:var(--bad-bg); color:var(--bad); border:none; border-radius:8px;
+    width:34px; height:36px; font-size:1rem; cursor:pointer; flex-shrink:0;
+  }
+  .add-btn{
+    background:none; border:1.5px dashed var(--blue); color:var(--blue);
+    border-radius:8px; padding:8px 12px; font-size:0.82rem; cursor:pointer; width:100%; font-weight:600;
+  }
+  .hint{font-size:0.72rem; color:var(--sub); margin:-6px 0 10px; line-height:1.5;}
+  .hint b{color:var(--blue-dark);}
+  .subtotal{
+    text-align:right; font-size:0.85rem; color:var(--blue-dark); font-weight:700; margin-top:4px;
+  }
+  .sync-row{display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:10px;}
+  .sync-row span{font-size:0.75rem; color:var(--sub);}
+  .sync-btn{
+    background:var(--blue-light); color:var(--blue-dark); border:none; border-radius:8px;
+    padding:6px 10px; font-size:0.72rem; font-weight:700; cursor:pointer; white-space:nowrap;
+  }
+  /* 結果エリア */
+  .result-hero{
+    background:linear-gradient(135deg,#1e8e3e,#0d6b2e); color:#fff; border-radius:var(--radius);
+    padding:20px 16px; text-align:center; margin-bottom:16px;
+  }
+  .result-hero.loss{background:linear-gradient(135deg,#d93025,#a8231a);}
+  .result-hero .label{font-size:0.8rem; opacity:0.9; margin-bottom:6px;}
+  .result-hero .num{font-size:2.1rem; font-weight:800; letter-spacing:0.5px;}
+  .result-hero .sub{font-size:0.75rem; opacity:0.85; margin-top:6px;}
+  table.cmp{width:100%; border-collapse:collapse; font-size:0.85rem;}
+  table.cmp th, table.cmp td{padding:9px 6px; border-bottom:1px solid var(--border); text-align:right;}
+  table.cmp th:first-child, table.cmp td:first-child{text-align:left; color:var(--sub); font-weight:600;}
+  table.cmp tr.total td{font-weight:800; color:var(--blue-dark); border-top:2px solid var(--blue-light);}
+  .breakdown{font-size:0.78rem; color:var(--sub); margin-top:10px; line-height:1.8;}
+  .actions{display:flex; gap:10px; margin-top:6px;}
+  .actions button{
+    flex:1; padding:12px; border:none; border-radius:10px; font-size:0.88rem; font-weight:700; cursor:pointer;
+  }
+  .btn-copy{background:var(--blue); color:#fff;}
+  .btn-reset{background:#eef2f7; color:var(--sub);}
+  .toast{
+    position:fixed; bottom:20px; left:50%; transform:translateX(-50%);
+    background:#1b2733; color:#fff; padding:10px 18px; border-radius:20px; font-size:0.82rem;
+    opacity:0; pointer-events:none; transition:opacity 0.25s;
+  }
+  .toast.show{opacity:1;}
+  footer{text-align:center; font-size:0.7rem; color:var(--sub); margin-top:10px;}
+  footer a{color:var(--blue);}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>📱 乗り換え損益比較シミュレーター</h1>
+  <p>やっぴ〜Presents（@8p_thankyou）｜現状 vs 乗り換え後を数字でまるっと比較</p>
+</header>
+
+<div class="wrap">
+
+  <!-- STEP1 現状 -->
+  <div class="card">
+    <h2><span class="badge">STEP1</span>今の維持費を入力</h2>
+
+    <div class="row">
+      <div class="field">
+        <label>今のキャリア／格安SIM会社</label>
+        <select id="b_carrierPreset">
+          <option value="">選択してください</option>
+          <option value="docomo_max">docomo ドコモMAX</option>
+          <option value="docomo_mini">docomo ドコモmini</option>
+          <option value="uq_tokutoku2">UQ mobile トクトクプラン2</option>
+          <option value="ymobile_simple3">Y!mobile シンプル3</option>
+          <option value="softbank_paytoku2">SoftBank ペイトク2/テイガク無制限</option>
+          <option value="other">その他（自由入力）</option>
+        </select>
+        <input type="text" id="b_carrierCustom" placeholder="キャリア名を入力" style="display:none; margin-top:6px;">
+        <p class="hint" id="b_carrierHint" style="display:none;"></p>
+      </div>
+      <div class="field">
+        <label>プラン月額（円・1回線あたり）</label>
+        <input type="number" id="b_planFee" placeholder="例：7000">
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label>回線の持ち方</label>
+        <select id="b_lineType">
+          <option value="solo1">一人で1回線</option>
+          <option value="soloMulti">一人で複数回線</option>
+          <option value="familyMulti">家族で複数回線</option>
+        </select>
+      </div>
+      <div class="field" id="b_lineCountWrap" style="display:none;">
+        <label>合計回線数</label>
+        <input type="number" id="b_lineCount" min="1" value="2">
+      </div>
+    </div>
+
+    <label class="inline-check">
+      <input type="checkbox" id="b_hasNet">🏠 おうち割（ネット）あり
+    </label>
+    <div class="sub-fields" id="b_netFields" style="display:none;">
+      <div class="row">
+        <div class="field">
+          <label>使ってるネット回線名</label>
+          <input type="text" id="b_netProvider" placeholder="例：ソフトバンク光">
+        </div>
+        <div class="field">
+          <label>おうち割ネット割引額（円/月）</label>
+          <input type="number" id="b_netDiscount" placeholder="例：1100">
+        </div>
+      </div>
+    </div>
+
+    <label class="inline-check">
+      <input type="checkbox" id="b_hasDenki">⚡ おうち割（でんき）あり
+    </label>
+    <div class="sub-fields" id="b_denkiFields" style="display:none;">
+      <div class="row">
+        <div class="field">
+          <label>おうち割でんき割引額（円/月）</label>
+          <input type="number" id="b_denkiDiscount" placeholder="例：550">
+        </div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label>スマホ本体の支払い</label>
+        <select id="b_device">
+          <option value="none">支払いなし（一括購入済み等）</option>
+          <option value="rental">レンタル中</option>
+          <option value="installment">分割払い中</option>
+        </select>
+      </div>
+      <div class="field" id="b_deviceFeeWrap" style="display:none;">
+        <label>毎月の支払額（円）</label>
+        <input type="number" id="b_deviceFee" placeholder="例：2000">
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label>自宅ネット回線の月額（円）</label>
+        <input type="number" id="b_netFee" placeholder="例：5000">
+      </div>
+      <div class="field" style="display:flex; align-items:flex-end;">
+        <label class="inline-check" style="margin:0; width:100%;">
+          <input type="checkbox" id="b_netInTotal">比較の合計に含める
+        </label>
+      </div>
+    </div>
+    <p class="hint">💡 ネット月額はキャリアを変えても基本続く固定費なので、初期設定では合計に含めていません。「携帯とネットまとめて」で比較したいときだけチェックを入れてください。</p>
+
+    <label style="font-size:0.8rem; font-weight:700; color:var(--blue-dark);">オプション（保証・保険など）</label>
+    <div id="b_options"></div>
+    <button class="add-btn" id="b_addOpt" type="button">＋ オプションを追加</button>
+    <div class="subtotal" id="b_subtotal"></div>
+  </div>
+
+  <!-- STEP2 乗り換え案件 -->
+  <div class="card">
+    <h2><span class="badge">STEP2</span>乗り換え案件を入力</h2>
+    <p class="hint">⚠️ この下の金額項目はすべて<b>「1回線あたり」</b>の金額を入力してください。回線数をかけて自動的に合計を出します。</p>
+
+    <div class="row">
+      <div class="field">
+        <label>乗り換え先キャリア／プラン</label>
+        <select id="a_carrierPreset">
+          <option value="">選択してください</option>
+          <option value="docomo_max">docomo ドコモMAX</option>
+          <option value="docomo_mini">docomo ドコモmini</option>
+          <option value="uq_tokutoku2">UQ mobile トクトクプラン2</option>
+          <option value="ymobile_simple3">Y!mobile シンプル3</option>
+          <option value="softbank_paytoku2">SoftBank ペイトク2/テイガク無制限</option>
+          <option value="other">その他（自由入力）</option>
+        </select>
+        <input type="text" id="a_carrierCustom" placeholder="キャリア名を入力" style="display:none; margin-top:6px;">
+        <p class="hint" id="a_carrierHint" style="display:none;"></p>
+      </div>
+      <div class="field">
+        <label>乗り換える回線数</label>
+        <input type="number" id="a_lineCount" min="1" value="1">
+      </div>
+    </div>
+    <div class="sync-row">
+      <span id="syncHint">STEP1の回線数：1回線</span>
+      <button class="sync-btn" id="syncLineCount" type="button">STEP1と同じ回線数にする</button>
+    </div>
+
+    <h3>📶 プラン月額（初月と2ヶ月目以降）</h3>
+    <div class="row">
+      <div class="field">
+        <label>新プラン月額・初月（円/1回線）</label>
+        <input type="number" id="a_planFeeFirst" placeholder="例：3465">
+      </div>
+      <div class="field">
+        <label>新プラン月額・2ヶ月目以降（円/1回線）</label>
+        <input type="number" id="a_planFeeAfter" placeholder="例：3465">
+      </div>
+    </div>
+
+    <label class="inline-check" id="prorationLabel">
+      <input type="checkbox" id="applyProration" checked>初月を日割り計算する
+    </label>
+    <p class="hint" id="prorationHint">💡 <b>au／UQ／ソフトバンク系</b>は基本この日割りが適用されます。<b style="color:#b45309;">docomo系は日割り非対応</b>なので、docomoの場合はチェックを外してください（初月は満額で計算されます）。</p>
+    <div class="row" id="prorationDateWrap">
+      <div class="field">
+        <label>契約開始日（初月日割り用）</label>
+        <input type="date" id="contractDate">
+      </div>
+    </div>
+
+    <label class="inline-check">
+      <input type="checkbox" id="a_hasNet">🏠 新おうち割（ネット）あり
+    </label>
+    <div class="sub-fields" id="a_netFields" style="display:none;">
+      <div class="row">
+        <div class="field">
+          <label>おうち割ネット割引額（円/月・1回線）</label>
+          <input type="number" id="a_netDiscount" placeholder="例：1100">
+        </div>
+      </div>
+    </div>
+
+    <label class="inline-check">
+      <input type="checkbox" id="a_hasDenki">⚡ 新おうち割（でんき）あり
+    </label>
+    <div class="sub-fields" id="a_denkiFields" style="display:none;">
+      <div class="row">
+        <div class="field">
+          <label>おうち割でんき割引額（円/月・1回線）</label>
+          <input type="number" id="a_denkiDiscount" placeholder="例：550">
+        </div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label>新端末の支払い</label>
+        <select id="a_device">
+          <option value="none">なし</option>
+          <option value="rental">レンタル</option>
+          <option value="installment">分割購入</option>
+        </select>
+      </div>
+      <div class="field" id="a_deviceFeeWrap" style="display:none;">
+        <label>毎月の支払額（円/1回線）</label>
+        <input type="number" id="a_deviceFee" placeholder="例：0">
+      </div>
+    </div>
+    <div class="row" id="a_deviceReturnFeeWrap" style="display:none;">
+      <div class="field">
+        <label>返却時の精算金（円/1回線・維持期間終了時）</label>
+        <input type="number" id="a_deviceReturnFee" placeholder="例：22000" value="22000">
+      </div>
+    </div>
+    <p class="hint" id="a_deviceReturnFeeHint" style="display:none;">💡 レンタル端末を維持期間終了後に返却する場合、精算金が発生することがあります。不要な場合は0にしてください。</p>
+
+    <h3>🔧 新プランのオプション</h3>
+    <p class="hint">「課金月数」＝実際に料金が発生する月数。初月だけ必要なら<b>1</b>、翌月まで必要なら<b>2</b>を入力（空欄なら維持期間ぶんずっと課金）。</p>
+    <div id="a_options"></div>
+    <button class="add-btn" id="a_addOpt" type="button">＋ オプションを追加</button>
+
+    <h2 style="margin-top:18px;">💰 キャッシュバック内訳（1回線あたり）</h2>
+    <div class="row">
+      <div class="field">
+        <label>SIM単キャッシュバック（円/1回線）</label>
+        <input type="number" id="cb_sim" value="20000">
+      </div>
+      <div class="field">
+        <label>おうち割ネットセットCB（円/1回線）</label>
+        <input type="number" id="cb_net" value="15000">
+      </div>
+      <div class="field">
+        <label>おうち割でんきセットCB（円/1回線）</label>
+        <input type="number" id="cb_denki" value="5000">
+      </div>
+    </div>
+    <div class="subtotal" id="cb_subtotal"></div>
+
+    <h2 style="margin-top:18px;">📅 維持条件・初期費用（1回線あたり）</h2>
+    <div class="row">
+      <div class="field">
+        <label>維持期間</label>
+        <select id="holdDays">
+          <option value="91">91日</option>
+          <option value="181">181日</option>
+          <option value="211">211日</option>
+          <option value="365" selected>1年（365日）</option>
+          <option value="custom">カスタム日数</option>
+        </select>
+      </div>
+      <div class="field" id="customDaysWrap" style="display:none;">
+        <label>日数を入力</label>
+        <input type="number" id="customDays" value="30">
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label>初期事務手数料（円/1回線）</label>
+        <input type="number" id="setupFee" value="4950">
+      </div>
+      <div class="field">
+        <label>1年以内の解約金（円/1回線）</label>
+        <input type="number" id="cancelFee" value="1100">
+      </div>
+    </div>
+    <label class="inline-check">
+      <input type="checkbox" id="applyCancelFee">維持期間終了時点で解約金が発生する（1年未満で解約）
+    </label>
+
+    <div class="row">
+      <div class="field">
+        <label>案件手配料金</label>
+        <select id="agencyHas">
+          <option value="no">なし</option>
+          <option value="yes">あり</option>
+        </select>
+      </div>
+      <div class="field" id="agencyFeeWrap" style="display:none;">
+        <label>手配料金（円/1回線）</label>
+        <input type="number" id="agencyFee" placeholder="例：3000">
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP3 結果 -->
+  <div class="card">
+    <h2><span class="badge">STEP3</span>比較結果</h2>
+
+    <div class="result-hero" id="heroBox">
+      <div class="label" id="heroLabel">維持期間中のお得額</div>
+      <div class="num" id="heroNum">¥0</div>
+      <div class="sub" id="heroSub"></div>
+    </div>
+
+    <table class="cmp">
+      <tr><th></th><th id="periodHeader">期間</th></tr>
+      <tr><td>今のままの支出</td><td id="r_before">¥0</td></tr>
+      <tr><td>乗り換え後の支出（CB控除前）</td><td id="r_afterGross">¥0</td></tr>
+      <tr><td>受け取るCB合計</td><td id="r_cb">¥0</td></tr>
+      <tr><td>乗り換え後の実質支出（CB込み）</td><td id="r_afterNet">¥0</td></tr>
+      <tr class="total"><td>差額（乗り換えメリット）</td><td id="r_diff">¥0</td></tr>
+    </table>
+
+    <div class="breakdown" id="breakdown"></div>
+
+    <div class="actions">
+      <button class="btn-copy" id="copyBtn" type="button">📋 結果をコピー</button>
+      <button class="btn-reset" id="resetBtn" type="button">🔄 リセット</button>
+    </div>
+  </div>
+
+  <footer>
+    やっぴ〜Presents（<a href="https://twitter.com/8p_thankyou" target="_blank">@8p_thankyou</a>）｜入力内容は自動保存されます（同一ブラウザ限定）
+  </footer>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  const $ = id => document.getElementById(id);
+  const yen = n => "¥" + Math.round(n).toLocaleString('ja-JP');
+  const num = id => parseFloat($(id).value) || 0;
+
+  // ---- キャリア別おうち割プリセット（1回線あたり・2026年8月時点の公式情報ベース） ----
+  const CARRIER_PRESETS = {
+    docomo_max:      { net: 1210, denki: 110,  exclusive: false, note: 'みんなドコモ割（家族3回線以上-1,210円/月）は別枠。ネットとでんきの割引は同時に適用できます。' },
+    docomo_mini:     { net: 1210, denki: 110,  exclusive: false, note: 'ドコモminiは「みんなドコモ割」（家族割）の対象外です。ネットとでんきの割引は同時に適用できます。' },
+    uq_tokutoku2:    { net: 1100, denki: 1100, exclusive: true,  note: '自宅セット割はネット・でんきどちらでも-1,100円ですが、併用不可（どちらか一方のみ）です。' },
+    ymobile_simple3: { net: 1650, denki: 1100, exclusive: true,  note: 'おうち割 光セット(A)とでんきセット(E)は併用不可（割引額が大きい方が優先）です。' },
+    softbank_paytoku2:{ net: 1100, denki: null, exclusive: true, note: 'おうち割光セットは-1,100円。でんきとのセット割は名称・金額が変わる場合があるため要確認です。' }
+  };
+
+  function setupCarrierPreset(prefix){
+    const sel = $(prefix+'_carrierPreset');
+    const custom = $(prefix+'_carrierCustom');
+    const hint = $(prefix+'_carrierHint');
+    sel.addEventListener('change', ()=>{
+      const v = sel.value;
+      custom.style.display = v === 'other' ? 'block' : 'none';
+      if(v && v !== 'other' && CARRIER_PRESETS[v]){
+        const p = CARRIER_PRESETS[v];
+        $(prefix+'_hasNet').checked = true;
+        $(prefix+'_netDiscount').value = p.net;
+        $(prefix+'_netFields').style.display = 'block';
+        if(p.denki !== null){
+          $(prefix+'_hasDenki').checked = true;
+          $(prefix+'_denkiDiscount').value = p.denki;
+          $(prefix+'_denkiFields').style.display = 'block';
+        } else {
+          $(prefix+'_hasDenki').checked = false;
+          $(prefix+'_denkiFields').style.display = 'none';
+        }
+        hint.style.display = 'block';
+        hint.textContent = '💡 ' + p.note + (p.exclusive ? '' : '');
+      } else {
+        hint.style.display = 'none';
+      }
+      calc();
+    });
+  }
+  setupCarrierPreset('b');
+  setupCarrierPreset('a');
+
+  function carrierLabel(prefix){
+    const sel = $(prefix+'_carrierPreset');
+    if(!sel.value) return '';
+    if(sel.value === 'other') return $(prefix+'_carrierCustom').value;
+    return sel.options[sel.selectedIndex].text;
+  }
+
+  // ---- 表示切り替え ----
+  $('b_lineType').addEventListener('change', e=>{
+    $('b_lineCountWrap').style.display = e.target.value === 'solo1' ? 'none' : 'block';
+    updateSyncHint(); calc();
+  });
+  $('b_hasNet').addEventListener('change', e=>{ $('b_netFields').style.display = e.target.checked?'block':'none'; calc(); });
+  $('b_hasDenki').addEventListener('change', e=>{ $('b_denkiFields').style.display = e.target.checked?'block':'none'; calc(); });
+  $('b_device').addEventListener('change', e=>{ $('b_deviceFeeWrap').style.display = e.target.value==='none'?'none':'block'; calc(); });
+
+  $('a_hasNet').addEventListener('change', e=>{ $('a_netFields').style.display = e.target.checked?'block':'none'; calc(); });
+  $('a_hasDenki').addEventListener('change', e=>{ $('a_denkiFields').style.display = e.target.checked?'block':'none'; calc(); });
+  $('a_device').addEventListener('change', e=>{
+    $('a_deviceFeeWrap').style.display = e.target.value==='none'?'none':'block';
+    const isRental = e.target.value === 'rental';
+    $('a_deviceReturnFeeWrap').style.display = isRental ? 'flex' : 'none';
+    $('a_deviceReturnFeeHint').style.display = isRental ? 'block' : 'none';
+    calc();
+  });
+
+  $('applyProration').addEventListener('change', e=>{
+    $('prorationDateWrap').style.display = e.target.checked ? 'flex' : 'none';
+    calc();
+  });
+
+  $('holdDays').addEventListener('change', e=>{
+    $('customDaysWrap').style.display = e.target.value==='custom' ? 'block':'none';
+    const days = getHoldDays();
+    $('applyCancelFee').checked = days < 365;
+    calc();
+  });
+  $('agencyHas').addEventListener('change', e=>{ $('agencyFeeWrap').style.display = e.target.value==='yes'?'block':'none'; calc(); });
+
+  $('syncLineCount').addEventListener('click', ()=>{
+    const bCount = $('b_lineType').value==='solo1' ? 1 : (parseInt($('b_lineCount').value)||1);
+    $('a_lineCount').value = bCount;
+    calc();
+  });
+
+  function updateSyncHint(){
+    const bCount = $('b_lineType').value==='solo1' ? 1 : (parseInt($('b_lineCount').value)||1);
+    $('syncHint').textContent = `STEP1の回線数：${bCount}回線`;
+  }
+
+  function getHoldDays(){
+    const v = $('holdDays').value;
+    if(v === 'custom') return parseFloat($('customDays').value)||0;
+    return parseFloat(v);
+  }
+
+  // ---- オプション行 ----
+  function addOptRow(containerId, name, fee, months){
+    const wrap = document.createElement('div');
+    wrap.className = 'opt-row';
+    wrap.innerHTML = `
+      <div class="opt-row-inner">
+        <div style="flex:2; min-width:100px;">
+          <span class="opt-label">オプション名</span>
+          <input type="text" class="optname" placeholder="例：あんしん保証" value="${name||''}">
+        </div>
+        <div style="flex:1; min-width:80px;">
+          <span class="opt-label">月額円</span>
+          <input type="number" class="fee" placeholder="円" value="${fee||''}">
+        </div>
+        <div style="flex:1; min-width:70px;">
+          <span class="opt-label">課金月数</span>
+          <input type="number" class="months" placeholder="全期間" value="${months||''}">
+        </div>
+      </div>
+      <button type="button">✕</button>
+    `;
+    wrap.querySelector('button').addEventListener('click', ()=>{ wrap.remove(); calc(); });
+    wrap.querySelectorAll('input').forEach(inp=>{
+      inp.addEventListener('input', calc);
+      inp.addEventListener('change', calc);
+    });
+    $(containerId).appendChild(wrap);
+  }
+  $('b_addOpt').addEventListener('click', ()=>{ addOptRow('b_options'); calc(); });
+  $('a_addOpt').addEventListener('click', ()=>{ addOptRow('a_options'); calc(); });
+
+  // 現状側オプション合計（課金月数の概念なし＝常に維持期間ぶん）
+  function bOptSum(){
+    let sum = 0;
+    $('b_options').querySelectorAll('.opt-row').forEach(r=>{ sum += parseFloat(r.querySelector('.fee').value)||0; });
+    return sum;
+  }
+
+  // 乗り換え後オプション合計（課金月数を考慮、totalMonthsを超えない）
+  function aOptTotalCost(totalMonths){
+    let sum = 0;
+    $('a_options').querySelectorAll('.opt-row').forEach(r=>{
+      const fee = parseFloat(r.querySelector('.fee').value)||0;
+      const monthsRaw = r.querySelector('.months').value;
+      const months = monthsRaw === '' ? totalMonths : Math.min(parseFloat(monthsRaw)||0, totalMonths);
+      sum += fee * months;
+    });
+    return sum;
+  }
+
+  // ---- 全input監視 ----
+  document.querySelectorAll('input, select').forEach(el=>{
+    el.addEventListener('input', calc);
+    el.addEventListener('change', calc);
+  });
+
+  function calc(){
+    const days = getHoldDays();
+    const totalMonths = days / 30;
+
+    // ===== 現状（STEP1） =====
+    const lineTypeB = $('b_lineType').value;
+    const bLineCount = lineTypeB === 'solo1' ? 1 : (parseInt($('b_lineCount').value)||1);
+    updateSyncHint();
+
+    const bPlan = num('b_planFee') * bLineCount;
+    const bNetDisc = $('b_hasNet').checked ? num('b_netDiscount') * bLineCount : 0;
+    const bDenkiDisc = $('b_hasDenki').checked ? num('b_denkiDiscount') * bLineCount : 0;
+    const bDevice = ($('b_device').value === 'none' ? 0 : num('b_deviceFee')) * bLineCount;
+    const bOpt = bOptSum();
+    const bNetFee = $('b_netInTotal').checked ? num('b_netFee') : 0;
+    const beforeMonthly = bPlan - bNetDisc - bDenkiDisc + bDevice + bOpt + bNetFee;
+    const beforeTotal = beforeMonthly * totalMonths;
+
+    // ===== 乗り換え後（STEP2） =====
+    const aLineCount = parseInt($('a_lineCount').value) || 1;
+    const planFirst = num('a_planFeeFirst') * aLineCount;
+    const planAfter = num('a_planFeeAfter') * aLineCount;
+
+    // 初月/2ヶ月目以降の計算
+    let firstMonthCost = 0, remainingMonths = 0, firstRatioText = '満額（非日割り）';
+    if($('applyProration').checked && $('contractDate').value){
+      const d = new Date($('contractDate').value + 'T00:00:00');
+      const y = d.getFullYear(), m = d.getMonth();
+      const daysInMonth = new Date(y, m+1, 0).getDate();
+      const dayOfMonth = d.getDate();
+      const remDaysInMonth = daysInMonth - dayOfMonth + 1;
+      const firstSegmentDays = Math.min(remDaysInMonth, days);
+      const ratio = firstSegmentDays / daysInMonth;
+      firstMonthCost = planFirst * ratio;
+      const remainingDays = Math.max(0, days - firstSegmentDays);
+      remainingMonths = remainingDays / 30;
+      firstRatioText = `日割り ${firstSegmentDays}日 / ${daysInMonth}日 = ${(ratio*100).toFixed(1)}%`;
+    } else {
+      firstMonthCost = planFirst * Math.min(1, totalMonths || 1);
+      remainingMonths = Math.max(0, totalMonths - 1);
+      firstRatioText = $('applyProration').checked ? '契約日未入力のため満額' : '非日割り（docomo等）につき満額';
+    }
+    const planCost = firstMonthCost + planAfter * remainingMonths;
+
+    const aNetDisc = $('a_hasNet').checked ? num('a_netDiscount') * aLineCount : 0;
+    const aDenkiDisc = $('a_hasDenki').checked ? num('a_denkiDiscount') * aLineCount : 0;
+    const aDevice = ($('a_device').value === 'none' ? 0 : num('a_deviceFee')) * aLineCount;
+    const otherMonthly = aDevice - aNetDisc - aDenkiDisc;
+    const otherOngoingCost = otherMonthly * totalMonths;
+
+    const optCostPerLine = aOptTotalCost(totalMonths);
+    const optCost = optCostPerLine * aLineCount;
+
+    const afterRunning = planCost + otherOngoingCost + optCost;
+
+    const cbSimPer = num('cb_sim'), cbNetPer = num('cb_net'), cbDenkiPer = num('cb_denki');
+    const totalCB = (cbSimPer + cbNetPer + cbDenkiPer) * aLineCount;
+
+    const setupFee = num('setupFee') * aLineCount;
+    const cancelFee = ($('applyCancelFee').checked ? num('cancelFee') : 0) * aLineCount;
+    const agencyFee = ($('agencyHas').value === 'yes' ? num('agencyFee') : 0) * aLineCount;
+    const deviceReturnFee = ($('a_device').value === 'rental' ? num('a_deviceReturnFee') : 0) * aLineCount;
+    const oneTime = setupFee + cancelFee + agencyFee + deviceReturnFee;
+
+    const afterGross = afterRunning + oneTime;
+    const afterNet = afterGross - totalCB;
+    const diff = beforeTotal - afterNet;
+
+    // ---- 表示 ----
+    $('b_subtotal').textContent = "現状 月額実質：" + yen(beforeMonthly) + " ／ 期間内合計：" + yen(beforeTotal);
+    $('cb_subtotal').textContent = "CB合計（" + aLineCount + "回線分）：" + yen(totalCB);
+
+    const periodLabel = days + "日間・" + aLineCount + "回線";
+    $('periodHeader').textContent = periodLabel;
+    $('r_before').textContent = yen(beforeTotal);
+    $('r_afterGross').textContent = yen(afterGross);
+    $('r_cb').textContent = yen(totalCB);
+    $('r_afterNet').textContent = (afterNet<0? "手残り " : "") + yen(Math.abs(afterNet)) + (afterNet<0? "" : " 支出");
+    $('r_diff').textContent = (diff>=0? "+" : "−") + yen(Math.abs(diff));
+
+    const hero = $('heroBox');
+    hero.classList.toggle('loss', diff < 0);
+    $('heroLabel').textContent = diff >= 0 ? `${periodLabel}のお得額` : `${periodLabel}の損失額`;
+    $('heroNum').textContent = (diff>=0?"+":"−") + yen(Math.abs(diff));
+    const perMonth = totalMonths ? diff / totalMonths : 0;
+    $('heroSub').textContent = `月あたり換算 約${yen(Math.abs(perMonth))}/月 ${diff>=0?'お得':'マイナス'}`;
+
+    $('breakdown').innerHTML = `
+      ・今のまま：月額実質 ${yen(beforeMonthly)} × ${totalMonths.toFixed(1)}ヶ月 = ${yen(beforeTotal)}<br>
+      ・乗り換え後プラン代（${aLineCount}回線）：初月 ${yen(firstMonthCost)}（${firstRatioText}）＋ 2ヶ月目以降 ${yen(planAfter*remainingMonths)}（${remainingMonths.toFixed(1)}ヶ月分）＝ ${yen(planCost)}<br>
+      ・端末代・割引差引：${yen(otherOngoingCost)}／オプション：${yen(optCost)}<br>
+      ・初期費用等：事務手数料${yen(setupFee)}＋解約金${yen(cancelFee)}＋手配料${yen(agencyFee)}＋端末返却精算金${yen(deviceReturnFee)} = ${yen(oneTime)}<br>
+      ・乗り換え後支出合計：${yen(afterGross)} − CB合計 ${yen(totalCB)} = 実質${afterNet<0?'手残り':'支出'} ${yen(Math.abs(afterNet))}
+    `;
+
+    save();
+  }
+
+  // ---- コピー ----
+  $('copyBtn').addEventListener('click', ()=>{
+    const text = `【乗り換え損益シミュレーション】
+現在：${carrierLabel('b') || '---'}
+乗り換え先：${carrierLabel('a') || '---'}（${$('a_lineCount').value || 1}回線）
+維持期間：${getHoldDays()}日
+
+▼今のまま：${$('r_before').textContent}
+▼乗り換え後の支出：${$('r_afterGross').textContent}
+▼受け取るCB：${$('r_cb').textContent}
+▼乗り換え後の実質：${$('r_afterNet').textContent}
+▼${$('heroLabel').textContent}：${$('heroNum').textContent}
+
+やっぴ〜Presents（@8p_thankyou）`;
+    navigator.clipboard.writeText(text).then(()=>showToast('コピーしました！'));
+  });
+
+  $('resetBtn').addEventListener('click', ()=>{
+    if(confirm('入力内容をすべてリセットします。よろしいですか？')){
+      localStorage.removeItem('switchCompareSimV2');
+      location.reload();
+    }
+  });
+
+  function showToast(msg){
+    const t = $('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(()=>t.classList.remove('show'), 1800);
+  }
+
+  // ---- 自動保存 ----
+  function save(){
+    const state = {};
+    document.querySelectorAll('input, select').forEach(el=>{
+      if(!el.id) return;
+      state[el.id] = el.type === 'checkbox' ? el.checked : el.value;
+    });
+    state._bOptions = Array.from($('b_options').querySelectorAll('.opt-row')).map(r=>({
+      name: r.querySelector('.optname').value, fee: r.querySelector('.fee').value
+    }));
+    state._aOptions = Array.from($('a_options').querySelectorAll('.opt-row')).map(r=>({
+      name: r.querySelector('.optname').value, fee: r.querySelector('.fee').value, months: r.querySelector('.months').value
+    }));
+    try{ localStorage.setItem('switchCompareSimV2', JSON.stringify(state)); }catch(e){}
+  }
+
+  function load(){
+    let state;
+    try{ state = JSON.parse(localStorage.getItem('switchCompareSimV2')); }catch(e){}
+    if(!state) return;
+    document.querySelectorAll('input, select').forEach(el=>{
+      if(!el.id || !(el.id in state)) return;
+      if(el.type === 'checkbox') el.checked = state[el.id];
+      else el.value = state[el.id];
+    });
+    (state._bOptions||[]).forEach(o=>addOptRow('b_options', o.name, o.fee));
+    (state._aOptions||[]).forEach(o=>addOptRow('a_options', o.name, o.fee, o.months));
+
+    $('b_lineCountWrap').style.display = $('b_lineType').value==='solo1' ? 'none':'block';
+    $('b_netFields').style.display = $('b_hasNet').checked ? 'block':'none';
+    $('b_denkiFields').style.display = $('b_hasDenki').checked ? 'block':'none';
+    $('b_deviceFeeWrap').style.display = $('b_device').value==='none' ? 'none':'block';
+    $('a_netFields').style.display = $('a_hasNet').checked ? 'block':'none';
+    $('a_denkiFields').style.display = $('a_hasDenki').checked ? 'block':'none';
+    $('a_deviceFeeWrap').style.display = $('a_device').value==='none' ? 'none':'block';
+    const aIsRental = $('a_device').value === 'rental';
+    $('a_deviceReturnFeeWrap').style.display = aIsRental ? 'flex' : 'none';
+    $('a_deviceReturnFeeHint').style.display = aIsRental ? 'block' : 'none';
+    $('customDaysWrap').style.display = $('holdDays').value==='custom' ? 'block':'none';
+    $('agencyFeeWrap').style.display = $('agencyHas').value==='yes' ? 'block':'none';
+    $('prorationDateWrap').style.display = $('applyProration').checked ? 'flex':'none';
+    ['b','a'].forEach(prefix=>{
+      const sel = $(prefix+'_carrierPreset');
+      $(prefix+'_carrierCustom').style.display = sel.value === 'other' ? 'block' : 'none';
+      const hint = $(prefix+'_carrierHint');
+      if(sel.value && sel.value !== 'other' && CARRIER_PRESETS[sel.value]){
+        hint.style.display = 'block';
+        hint.textContent = '💡 ' + CARRIER_PRESETS[sel.value].note;
+      }
+    });
+  }
+
+  load();
+  calc();
+})();
+</script>
+
+</body>
+</html>
