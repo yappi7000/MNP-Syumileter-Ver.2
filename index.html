@@ -71,6 +71,7 @@
   }
   .hint{font-size:0.72rem; color:var(--sub); margin:-6px 0 10px; line-height:1.5;}
   .hint b{color:var(--blue-dark);}
+  .docomo-hint{background:#fff8e1; border:1px solid #ffe08a; border-radius:8px; padding:8px 10px; color:#8a6300;}
   .subtotal{
     text-align:right; font-size:0.85rem; color:var(--blue-dark); font-weight:700; margin-top:4px;
   }
@@ -246,6 +247,19 @@
         <input type="number" id="a_lineCount" min="1" value="1">
       </div>
     </div>
+
+    <!-- ドコモ特有：MAX→mini（満額）か mini→mini（日割り）かの選択 -->
+    <div class="row" id="a_docomoFromWrap" style="display:none;">
+      <div class="field">
+        <label>【ドコモ特有】直前まで契約していたプラン</label>
+        <select id="a_docomoFromPlan">
+          <option value="fromMax">MAXプランからの変更 → 初月「満額」</option>
+          <option value="fromMini">mini同士のプラン変更（例：10G→4G） → 初月「日割り」</option>
+        </select>
+        <p class="hint docomo-hint">💡 ドコモだけ特殊で、<b>MAX→miniの変更は初月満額</b>、<b>mini同士の変更（10G→4Gなど）は日割り</b>になります。新規契約でMAXにする場合やMAXのまま維持する場合は上の「docomo ドコモMAX」を選べば自動で満額になります。</p>
+      </div>
+    </div>
+
     <div class="sync-row">
       <span id="syncHint">STEP1の回線数：1回線</span>
       <button class="sync-btn" id="syncLineCount" type="button">STEP1と同じ回線数にする</button>
@@ -266,7 +280,8 @@
     <label class="inline-check" id="prorationLabel">
       <input type="checkbox" id="applyProration" checked>初月を日割り計算する
     </label>
-    <p class="hint" id="prorationHint">💡 <b>au／UQ／ソフトバンク系</b>は基本この日割りが適用されます。<b style="color:#b45309;">docomo系は日割り非対応</b>なので、docomoの場合はチェックを外してください（初月は満額で計算されます）。</p>
+    <p class="hint" id="prorationHint">💡 <b>au／UQ／ソフトバンク系</b>は基本この日割りが適用されます。<b style="color:#b45309;">docomoは上のキャリア選択で自動判定される</b>ため、docomo以外を選んだ時だけこのチェックが有効です。</p>
+    <p class="hint docomo-hint" id="prorationDocomoNote" style="display:none;"></p>
     <div class="row" id="prorationDateWrap">
       <div class="field">
         <label>契約開始日（初月日割り用）</label>
@@ -463,6 +478,7 @@
       } else {
         hint.style.display = 'none';
       }
+      if(prefix === 'a'){ updateDocomoUI(); }
       calc();
     });
   }
@@ -475,6 +491,40 @@
     if(sel.value === 'other') return $(prefix+'_carrierCustom').value;
     return sel.options[sel.selectedIndex].text;
   }
+
+  // ---- ドコモ特有ルール（MAX→mini＝満額 / mini→mini＝日割り）のUI切り替え ----
+  function updateDocomoUI(){
+    const carrier = $('a_carrierPreset').value;
+    const isDocomoMax = carrier === 'docomo_max';
+    const isDocomoMini = carrier === 'docomo_mini';
+
+    $('a_docomoFromWrap').style.display = isDocomoMini ? 'flex' : 'none';
+
+    if(isDocomoMax || isDocomoMini){
+      // ドコモ選択時は通常の日割りチェックボックスを隠し、代わりに固定ルールの説明を出す
+      $('prorationLabel').style.display = 'none';
+      $('prorationHint').style.display = 'none';
+      const note = $('prorationDocomoNote');
+      note.style.display = 'block';
+
+      if(isDocomoMax){
+        note.textContent = '💡 docomo MAXは初月「満額」で自動計算されます（日割り非対応）。';
+        $('prorationDateWrap').style.display = 'none';
+      } else {
+        const fromMini = $('a_docomoFromPlan').value === 'fromMini';
+        note.textContent = fromMini
+          ? '💡 mini同士のプラン変更のため、初月は「日割り」で自動計算されます。'
+          : '💡 MAXプランからの変更のため、初月は「満額」で自動計算されます。';
+        $('prorationDateWrap').style.display = fromMini ? 'flex' : 'none';
+      }
+    } else {
+      $('prorationLabel').style.display = 'flex';
+      $('prorationHint').style.display = 'block';
+      $('prorationDocomoNote').style.display = 'none';
+      $('prorationDateWrap').style.display = $('applyProration').checked ? 'flex' : 'none';
+    }
+  }
+  $('a_docomoFromPlan').addEventListener('change', ()=>{ updateDocomoUI(); calc(); });
 
   // ---- 表示切り替え ----
   $('b_lineType').addEventListener('change', e=>{
@@ -496,7 +546,9 @@
   });
 
   $('applyProration').addEventListener('change', e=>{
-    $('prorationDateWrap').style.display = e.target.checked ? 'flex' : 'none';
+    if($('a_carrierPreset').value !== 'docomo_max' && $('a_carrierPreset').value !== 'docomo_mini'){
+      $('prorationDateWrap').style.display = e.target.checked ? 'flex' : 'none';
+    }
     calc();
   });
 
@@ -604,9 +656,28 @@
     const planFirst = num('a_planFeeFirst') * aLineCount;
     const planAfter = num('a_planFeeAfter') * aLineCount;
 
-    // 初月/2ヶ月目以降の計算
+    // ---- 初月満額／日割りの判定 ----
+    // ドコモだけ特殊：MAX→miniの変更は満額、mini同士（10G→4Gなど）の変更は日割り。
+    // docomo MAXそのもの（新規/維持）は満額。それ以外のキャリアは通常のチェックボックス通り。
+    const aCarrier = $('a_carrierPreset').value;
+    let useProration, forcedReason = null;
+
+    if(aCarrier === 'docomo_max'){
+      useProration = false;
+      forcedReason = 'docomo MAXは満額（日割り非対応）';
+    } else if(aCarrier === 'docomo_mini'){
+      if($('a_docomoFromPlan').value === 'fromMini'){
+        useProration = true; // mini同士の変更＝日割り。理由文は通常の日割り表示を使う
+      } else {
+        useProration = false;
+        forcedReason = 'MAXからminiへの変更につき満額（ドコモ特有ルール）';
+      }
+    } else {
+      useProration = $('applyProration').checked;
+    }
+
     let firstMonthCost = 0, remainingMonths = 0, firstRatioText = '満額（非日割り）';
-    if($('applyProration').checked && $('contractDate').value){
+    if(useProration && $('contractDate').value){
       const d = new Date($('contractDate').value + 'T00:00:00');
       const y = d.getFullYear(), m = d.getMonth();
       const daysInMonth = new Date(y, m+1, 0).getDate();
@@ -617,11 +688,11 @@
       firstMonthCost = planFirst * ratio;
       const remainingDays = Math.max(0, days - firstSegmentDays);
       remainingMonths = remainingDays / 30;
-      firstRatioText = `日割り ${firstSegmentDays}日 / ${daysInMonth}日 = ${(ratio*100).toFixed(1)}%`;
+      firstRatioText = forcedReason || `日割り ${firstSegmentDays}日 / ${daysInMonth}日 = ${(ratio*100).toFixed(1)}%`;
     } else {
       firstMonthCost = planFirst * Math.min(1, totalMonths || 1);
       remainingMonths = Math.max(0, totalMonths - 1);
-      firstRatioText = $('applyProration').checked ? '契約日未入力のため満額' : '非日割り（docomo等）につき満額';
+      firstRatioText = forcedReason || ($('applyProration').checked ? '契約日未入力のため満額' : '非日割り（docomo等）につき満額');
     }
     const planCost = firstMonthCost + planAfter * remainingMonths;
 
@@ -750,7 +821,6 @@
     $('a_deviceReturnFeeHint').style.display = aIsRental ? 'block' : 'none';
     $('customDaysWrap').style.display = $('holdDays').value==='custom' ? 'block':'none';
     $('agencyFeeWrap').style.display = $('agencyHas').value==='yes' ? 'block':'none';
-    $('prorationDateWrap').style.display = $('applyProration').checked ? 'flex':'none';
     ['b','a'].forEach(prefix=>{
       const sel = $(prefix+'_carrierPreset');
       $(prefix+'_carrierCustom').style.display = sel.value === 'other' ? 'block' : 'none';
@@ -760,6 +830,7 @@
         hint.textContent = '💡 ' + CARRIER_PRESETS[sel.value].note;
       }
     });
+    updateDocomoUI();
   }
 
   load();
